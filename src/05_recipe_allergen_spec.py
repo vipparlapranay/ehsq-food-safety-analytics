@@ -3,7 +3,7 @@ Phase 2 (PLM / recipe side): recipe and allergen specification analysis.
 
 Inputs
   data/raw/phase2/off_au_products.txt   2,724 Australian products from Open Food Facts
-                                        (fetched with src/fetch_open_food_facts.py)
+                                        (fetched with src/fetch_phase2_data.py)
   data/raw/phase2/fda_recall_summary.json  openFDA food recall counts (29,512 records)
 
 What it does, the way a recipe / PLM system would:
