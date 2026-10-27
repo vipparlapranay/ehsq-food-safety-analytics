@@ -1,0 +1,9 @@
+hazard_category,reports,amputation_reports,amputation_rate,inspection_rate
+Moving machinery: caught-in / guarding,2335,1495.0,0.64,0.535
+Maintenance & cleaning (LOTO risk),1655,945.0,0.571,0.593
+"Slips, trips and falls",901,81.0,0.09,0.161
+Other,825,493.0,0.598,0.464
+Powered industrial vehicles,807,111.0,0.138,0.307
+"Burns: steam, hot liquids, oil",223,5.0,0.022,0.417
+Knives and hand tools,101,42.0,0.416,0.277
+Chemical / ammonia exposure,15,0.0,0.0,0.867

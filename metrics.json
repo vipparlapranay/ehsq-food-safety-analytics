@@ -1,0 +1,22 @@
+{
+  "total_reports_all_industries": 105991,
+  "raw_rows": 105996,
+  "data_quality_checks": 12,
+  "rows_flagged_total": 296,
+  "food_reports": 6862,
+  "food_share_of_all": 0.065,
+  "food_amputation_rate": 0.462,
+  "non_manufacturing_amputation_rate": 0.175,
+  "amputation_rate_multiple": 2.6,
+  "food_inspection_rate": 0.458,
+  "finger_hand_share": 0.503,
+  "maintenance_cleaning_event_share": 0.225,
+  "top_hazard": "Moving machinery: caught-in / guarding",
+  "top_hazard_share": 0.34,
+  "top2_hazards_share": 0.581,
+  "classified_share": 0.88,
+  "meat_poultry_share": 0.319,
+  "avg_reports_2015_2019": 679.2,
+  "avg_reports_2021_2024": 585.5,
+  "trend_change": -0.138
+}

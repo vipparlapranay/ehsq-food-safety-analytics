@@ -1,0 +1,13 @@
+check,rows_flagged,action
+Duplicate ID,5,drop duplicate
+Fully duplicated row,0,drop duplicate
+Unparseable event date,0,drop
+Event date in the future,0,drop
+Missing / non-numeric NAICS,2,"keep, industry = Unknown"
+NAICS not 6 digits,178,"keep, flag"
+Missing state,0,"keep, flag"
+Latitude/longitude out of US range,100,null coordinates
+Missing severity flags (Hospitalized/Amputation/Loss of Eye),8,fill 0
+Negative severity counts,0,set 0
+No severity outcome recorded,0,"keep, flag"
+Missing or very short narrative (<20 chars),3,"keep, root cause = Unclassified"

@@ -1,0 +1,4 @@
+data/raw/
+data/processed/sir_clean.csv
+__pycache__/
+*.pyc
