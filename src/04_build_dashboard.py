@@ -1,7 +1,7 @@
 """
 Step 4: Build the interactive EHSQ Safety Command Centre (dashboard/index.html).
 Packs the 6,862 food & beverage incidents into compact columnar JSON and injects it
-into dashboard/template.html. All filtering and aggregation then runs in the browser.
+into src/dashboard_template.html. All filtering and aggregation then runs in the browser.
 """
 import json
 import re
@@ -54,10 +54,21 @@ for h, g in food.groupby("Hazard"):
                       "st": str(r["State"]).title(), "eq": str(r["SourceTitle"]).strip(),
                       "t": re.sub(r"\s+", " ", str(r["Final Narrative"]))[:420]})
 
-payload = {"dims": dims, "cols": cols, "cases": cases,
+# Phase 2 (recipe / allergen specifications), produced by src/05_recipe_allergen_spec.py
+p2 = None
+if Path("outputs/phase2_metrics.json").exists():
+    qq = pd.read_csv("outputs/phase2_spec_review_queue.csv", dtype=str).fillna("")
+    p2 = {"meta": json.load(open("outputs/phase2_metrics.json")),
+          "allergens": pd.read_csv("outputs/phase2_allergen_specs.csv").to_dict("records"),
+          "cats": pd.read_csv("outputs/phase2_category_specs.csv").to_dict("records"),
+          "where": pd.read_csv("outputs/phase2_where_used.csv").to_dict("records"),
+          "queue": qq.to_dict("records"),
+          "fda": json.load(open("data/raw/phase2/fda_recall_summary.json"))}
+
+payload = {"dims": dims, "cols": cols, "cases": cases, "p2": p2,
            "meta": {**m, "nonmfg_amp": m["non_manufacturing_amputation_rate"]},
            "dq": dq.to_dict("records")}
-tpl = Path("dashboard/template.html").read_text(encoding="utf-8")
+tpl = Path("src/dashboard_template.html").read_text(encoding="utf-8")
 out = tpl.replace("/*__DATA__*/null", json.dumps(payload, separators=(",", ":")))
 Path("dashboard/index.html").write_text(out, encoding="utf-8")
 print(f"dashboard/index.html written ({len(out)/1024:.0f} KB), {len(food):,} incidents, {len(cases)} cases")

@@ -1,0 +1,478 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Food Plant Safety Command Centre</title>
+<meta name="description" content="Interactive EHSQ analysis of 6,862 OSHA severe injury reports in US food and beverage manufacturing, 2015–2025.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+/* Layout: plant-floor control room. Sticky filter rail, summary first, then hazard → place → equipment → people → action → method. */
+:root{
+  --bg:#eef1f3; --surface:#ffffff; --surface-2:#f6f8f9; --ink:#14202a; --mut:#5a6873; --line:#d8dee3;
+  --steel:#2c5d7c;      /* ANSI safety blue, used for volume */
+  --orange:#e2601d;     /* ANSI safety orange, used for amputation / severity */
+  --yellow:#e8b100;     /* caution */
+  --red:#c2302a; --green:#2f8a57;
+  --hot-0:#f6f8f9; --hot-1:#e2601d;
+  --display:"Barlow Condensed","Arial Narrow",Arial,sans-serif;
+  --body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Consolas,monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0f1519; --surface:#172027; --surface-2:#1c2730; --ink:#e6ecf0; --mut:#93a2ad; --line:#2a3741;
+  --steel:#6fa8cc; --orange:#f07a3a; --yellow:#f0c435; --red:#ef5d55; --green:#56b981;
+  --hot-0:#1c2730; --hot-1:#f07a3a; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f1519; --surface:#172027; --surface-2:#1c2730; --ink:#e6ecf0; --mut:#93a2ad; --line:#2a3741;
+  --steel:#6fa8cc; --orange:#f07a3a; --yellow:#f0c435; --red:#ef5d55; --green:#56b981;
+  --hot-0:#1c2730; --hot-1:#f07a3a; color-scheme:dark}
+
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:15px/1.5 var(--body);-webkit-font-smoothing:antialiased}
+.wrap{max-width:1240px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+
+/* Header */
+.masthead{background:var(--surface);border-bottom:1px solid var(--line)}
+.masthead .wrap{padding-block:26px 22px;display:grid;gap:14px}
+.hazard-tape{height:8px;background:repeating-linear-gradient(-45deg,var(--yellow) 0 14px,var(--ink) 14px 28px);opacity:.9}
+.eyebrow{font:500 12px/1 var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--mut)}
+h1{font:700 clamp(30px,4.6vw,48px)/1.02 var(--display);letter-spacing:.01em;margin:0;text-wrap:balance;text-transform:uppercase}
+.thesis{font-size:clamp(17px,1.9vw,21px);line-height:1.4;max-width:62ch;margin:0;text-wrap:balance}
+.thesis b{color:var(--orange);font-weight:600}
+.prov{font:12.5px/1.5 var(--mono);color:var(--mut)}
+
+/* Filter rail */
+.rail{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:color-mix(in oklab,var(--bg) 88%,transparent);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:30;background:var(--bg)}
+.rail .wrap{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:center;padding-block:10px}
+.rail label{font:500 11px/1 var(--mono);text-transform:uppercase;letter-spacing:.07em;color:var(--mut);display:flex;gap:6px;align-items:center}
+select,button{font:500 13.5px var(--body);color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:7px 10px}
+button{cursor:pointer}
+button:hover,select:hover{border-color:var(--steel)}
+:focus-visible{outline:2px solid var(--orange);outline-offset:2px}
+.chip{display:inline-flex;align-items:center;gap:6px;background:var(--orange);color:#fff;border:0;border-radius:999px;padding:6px 12px;font-weight:600}
+.chip[hidden]{display:none!important}
+.count{margin-left:auto;font:500 13px var(--mono);color:var(--mut)}
+.count b{color:var(--ink)}
+
+main .wrap{display:grid;gap:18px;padding-block:20px 48px}
+
+/* KPI strip */
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(178px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.kpi{background:var(--surface);padding:14px 16px 16px;display:grid;gap:2px;align-content:start;position:relative}
+.kpi::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--sev,var(--steel))}
+.kpi .l{font:500 11px/1.3 var(--mono);text-transform:uppercase;letter-spacing:.07em;color:var(--mut)}
+.kpi .v{font:600 38px/1.05 var(--display);font-variant-numeric:tabular-nums;letter-spacing:.01em}
+.kpi .s{font-size:12.5px;color:var(--mut);line-height:1.35}
+
+/* Panels */
+.grid{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:18px}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px 18px 18px;min-width:0;display:grid;gap:10px;align-content:start}
+.span-7{grid-column:span 7}.span-5{grid-column:span 5}.span-6{grid-column:span 6}.span-12{grid-column:span 12}
+@media (max-width:900px){.span-7,.span-5,.span-6{grid-column:span 12}}
+.ph{display:flex;flex-wrap:wrap;gap:4px 12px;align-items:baseline;justify-content:space-between}
+h2{font:600 22px/1.1 var(--display);text-transform:uppercase;letter-spacing:.02em;margin:0}
+.hint{font-size:12.5px;color:var(--mut)}
+.box{position:relative;height:320px}
+.box.tall{height:360px}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12.5px;color:var(--mut)}
+.sw{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px;vertical-align:-1px}
+
+/* Map */
+#map{width:100%;height:100%;display:block}
+.maptip{position:absolute;right:0;top:0;font:12px var(--mono);color:var(--mut);text-align:right}
+
+/* Risk matrix */
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th,td{padding:7px 8px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top}
+th{font:500 11px/1.3 var(--mono);text-transform:uppercase;letter-spacing:.06em;color:var(--mut);background:var(--surface)}
+.matrix td.cell{text-align:center;font:500 12.5px var(--mono);font-variant-numeric:tabular-nums;cursor:pointer;border:2px solid var(--surface);min-width:52px}
+.matrix td.cell:hover{outline:2px solid var(--steel);outline-offset:-2px}
+.matrix th.rot{writing-mode:vertical-rl;transform:rotate(180deg);height:150px;vertical-align:bottom;text-align:left;padding:6px 4px}
+.matrix td.rowh{font-weight:500;white-space:nowrap}
+
+/* Cases */
+.tabs{display:flex;flex-wrap:wrap;gap:6px}
+.tab{border-radius:999px;padding:5px 11px;font-size:13px}
+.tab[aria-pressed="true"]{background:var(--ink);color:var(--surface);border-color:var(--ink)}
+.case{border:1px solid var(--line);border-left:4px solid var(--orange);border-radius:8px;padding:14px 16px;background:var(--surface-2);display:grid;gap:8px}
+.case p{margin:0;font-size:16px;line-height:1.55;max-width:75ch}
+.meta{display:flex;flex-wrap:wrap;gap:6px}
+.pill{font:500 11.5px/1 var(--mono);padding:5px 8px;border-radius:4px;background:var(--surface);border:1px solid var(--line);color:var(--mut)}
+.pill.amp{background:var(--orange);border-color:var(--orange);color:#fff}
+
+/* CAPA */
+.sev{display:inline-block;font:600 11px/1 var(--mono);padding:5px 7px;border-radius:3px;color:#fff;letter-spacing:.05em}
+.sev.p1{background:var(--red)}.sev.p2{background:var(--orange)}.sev.p3{background:var(--yellow);color:#14202a}.sev.p4{background:var(--steel)}
+.capa td{font-size:13.5px}
+.capa td.num{font:500 13px var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+.ctl{color:var(--mut);font-size:12.5px}
+
+/* Method */
+.steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr));gap:10px}
+.step{border:1px solid var(--line);border-radius:8px;padding:12px 14px;background:var(--surface-2);display:grid;gap:4px}
+.step .n{font:600 12px var(--mono);color:var(--orange)}
+.step b{font:600 18px/1.1 var(--display);text-transform:uppercase}
+.step span{font-size:13px;color:var(--mut)}
+.dq td.num{font:500 13px var(--mono);text-align:right}
+footer{font-size:12.5px;color:var(--mut);line-height:1.6}
+
+/* Phase 2 */
+.divider{grid-column:1/-1;display:grid;gap:6px;padding-top:18px;border-top:2px solid var(--ink);margin-top:6px}
+.divider h2{font-size:30px}
+.divider p{margin:0;color:var(--mut);max-width:80ch}
+.q-filter{display:flex;flex-wrap:wrap;gap:6px}
+.qtable td{font-size:13px}
+.qtable td.code{font:12px var(--mono);color:var(--mut)}
+.gap-pill{display:inline-block;font:600 11px/1 var(--mono);padding:4px 6px;border-radius:3px;background:var(--red);color:#fff;margin:1px 2px 1px 0}
+.qscroll{max-height:380px;overflow:auto;border:1px solid var(--line);border-radius:8px}
+.qscroll th{position:sticky;top:0}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<div class="hazard-tape" aria-hidden="true"></div>
+<header class="masthead"><div class="wrap">
+  <div class="eyebrow">EHSQ + PLM analytics · OSHA Severe Injury Reports · Open Food Facts · openFDA recalls</div>
+  <h1>Food Plant Safety Command Centre</h1>
+  <p class="thesis" id="thesis"></p>
+  <div class="prov" id="prov"></div>
+</div></header>
+
+<nav class="rail" aria-label="Filters"><div class="wrap">
+  <label for="fSub">Sub-sector <select id="fSub"></select></label>
+  <label for="fY0">From <select id="fY0"></select></label>
+  <label for="fY1">To <select id="fY1"></select></label>
+  <button class="chip" id="hazChip" hidden title="Clear hazard filter"></button>
+  <button id="reset">Reset</button>
+  <div class="count" id="count"></div>
+</div></nav>
+
+<main><div class="wrap">
+  <section class="kpis" id="kpis" aria-label="Key safety indicators"></section>
+
+  <div class="grid">
+    <section class="panel span-7">
+      <div class="ph"><h2>Hazard Pareto</h2><span class="hint">Click a bar to filter the whole dashboard</span></div>
+      <div class="box tall"><canvas id="cPareto"></canvas></div>
+    </section>
+    <section class="panel span-5">
+      <div class="ph"><h2>Yearly trend</h2><span class="hint">2025 covers Jan–Nov</span></div>
+      <div class="box tall"><canvas id="cTrend"></canvas></div>
+    </section>
+
+    <section class="panel span-6">
+      <div class="ph"><h2>Where it happens</h2><span class="hint">Each dot is one report</span></div>
+      <div class="legend"><span><i class="sw" style="background:var(--steel)"></i>Severe injury</span><span><i class="sw" style="background:var(--orange)"></i>Amputation</span></div>
+      <div class="box"><canvas id="map" role="img" aria-label="Dot map of incident locations across the contiguous United States"></canvas><div class="maptip" id="mapTip"></div></div>
+      <div class="hint" id="topStates"></div>
+    </section>
+    <section class="panel span-6">
+      <div class="ph"><h2>Risk matrix</h2><span class="hint">Amputations by sub-sector × hazard. Click a cell to drill in</span></div>
+      <div class="scroll"><table class="matrix" id="matrix"></table></div>
+    </section>
+
+    <section class="panel span-7">
+      <div class="ph"><h2>Equipment behind amputations</h2><span class="hint">Top 10 injury sources (OIICS source codes)</span></div>
+      <div class="box"><canvas id="cEquip"></canvas></div>
+    </section>
+    <section class="panel span-5">
+      <div class="ph"><h2>Body part injured</h2><span class="hint">Share of reports</span></div>
+      <div class="box"><canvas id="cBody"></canvas></div>
+    </section>
+
+    <section class="panel span-12">
+      <div class="ph"><h2>Corrective action plan (CAPA)</h2><span class="hint">Priority ranked by amputations in the current filter. Controls follow the hierarchy of controls</span></div>
+      <div class="scroll"><table class="capa" id="capa"></table></div>
+    </section>
+
+    <section class="panel span-12">
+      <div class="ph"><h2>Case file</h2><span class="hint">Real incident narratives from OSHA reports, sampled per hazard</span></div>
+      <div class="tabs" id="caseTabs" role="group" aria-label="Hazard category"></div>
+      <article class="case" id="case" aria-live="polite"></article>
+      <div><button id="nextCase">Next case →</button></div>
+    </section>
+
+
+    <div class="divider" id="phase2">
+      <span class="eyebrow">Phase 2 · Quality &amp; PLM · Recipe and allergen specifications</span>
+      <h2>Recipe &amp; allergen specification control</h2>
+      <p id="p2thesis"></p>
+    </div>
+    <section class="kpis span-12" id="p2kpis" aria-label="Specification indicators" style="grid-column:1/-1"></section>
+
+    <section class="panel span-7">
+      <div class="ph"><h2>Allergen roll-up check</h2><span class="hint">Allergens derived from each recipe vs the declared "Contains" statement</span></div>
+      <div class="box tall"><canvas id="cAlg"></canvas></div>
+    </section>
+    <section class="panel span-5">
+      <div class="ph"><h2>Recall benchmark</h2><span class="hint">FDA food recall records by cause</span></div>
+      <div class="box tall"><canvas id="cFda"></canvas></div>
+    </section>
+
+    <section class="panel span-6">
+      <div class="ph"><h2>Where-used</h2><span class="hint">Product specs touched by one ingredient change</span></div>
+      <div class="box"><canvas id="cWhere"></canvas></div>
+    </section>
+    <section class="panel span-6">
+      <div class="ph"><h2>Category risk</h2><span class="hint">Spec gap rate and "may contain" rate</span></div>
+      <div class="box"><canvas id="cCat"></canvas></div>
+    </section>
+
+    <section class="panel span-12">
+      <div class="ph"><h2>Specification review queue</h2><span class="hint" id="qcount"></span></div>
+      <div class="q-filter" id="qFilter" role="group" aria-label="Filter by allergen"></div>
+      <div class="qscroll"><table class="qtable" id="queue"></table></div>
+      <footer>Allergens are derived from Open Food Facts ingredient tags with rule-based matching against FSANZ mandatory allergens. A flag means the derived allergen is missing from the product's declared allergen data, so the record needs review against the physical label. It is not a finding that the product is mislabelled.</footer>
+    </section>
+
+    <section class="panel span-7">
+      <div class="ph"><h2>Pipeline</h2></div>
+      <div class="steps">
+        <div class="step"><span class="n">STEP 1 · PYTHON</span><b>Validate</b><span>12 automated data quality checks on 105,996 raw reports</span></div>
+        <div class="step"><span class="n">STEP 2 · NLP</span><b>Classify</b><span>Regex rules map free-text narratives to 7 hazard categories</span></div>
+        <div class="step"><span class="n">STEP 3 · SQL</span><b>Model</b><span>DuckDB star schema: fact_incident + 5 dimensions, integrity tested</span></div>
+        <div class="step"><span class="n">STEP 4 · BI</span><b>Act</b><span>Interactive dashboard and CAPA priorities for plant leadership</span></div>
+        <div class="step"><span class="n">STEP 5 · PLM</span><b>Specify</b><span>Recipe BOM, allergen roll-up, where-used and spec review queue for 2,724 products</span></div>
+      </div>
+      <footer>Limitations: OSHA SIR covers federal-OSHA jurisdictions, so state-plan states such as California and Washington are largely absent and figures are not a national total. "Inspection opened" is OSHA's regulatory follow-up, used as a proxy for an investigation trigger. Hazard categories are rule-based (first matching rule wins).</footer>
+    </section>
+    <section class="panel span-5">
+      <div class="ph"><h2>Data quality log</h2></div>
+      <div class="scroll"><table class="dq" id="dq"></table></div>
+    </section>
+  </div>
+  <footer>Sources: U.S. Department of Labor, OSHA Severe Injury Reports, Jan 2015 – Nov 2025 (osha.gov/severe-injury-reports); Open Food Facts product database, Australian products (openfoodfacts.org, ODbL); U.S. FDA food enforcement reports via openFDA (open.fda.gov), updated 21 Oct 2026. Analysis and dashboard by Pranay Vipparla Reddy.</footer>
+</div></main>
+
+<script>
+const DATA=/*__DATA__*/null;
+const {dims,cols,cases,meta,dq,p2}=DATA;
+const N=cols.y.length;
+const $=s=>document.querySelector(s);
+const fmt=n=>n.toLocaleString('en-US');
+const pct=(x,d=1)=>(x*100).toFixed(d)+'%';
+const HAZ_SHORT={"Moving machinery: caught-in / guarding":"Moving machinery","Maintenance & cleaning (LOTO risk)":"Maintenance & cleaning","Slips, trips and falls":"Slips, trips, falls","Powered industrial vehicles":"Forklifts & vehicles","Burns: steam, hot liquids, oil":"Burns","Knives and hand tools":"Knives & hand tools","Chemical / ammonia exposure":"Chemical / ammonia","Other":"Other","Unclassified":"Unclassified"};
+const CONTROLLABLE=["Moving machinery: caught-in / guarding","Maintenance & cleaning (LOTO risk)"].map(h=>dims.haz.indexOf(h));
+const CONTROLS={
+ "Moving machinery: caught-in / guarding":["Machine guarding audit on every nip point, blade and conveyor","Engineering: interlocked guards, two-hand controls, light curtains","Plant Engineering"],
+ "Maintenance & cleaning (LOTO risk)":["Lockout/tagout verification for sanitation and jam clearing","Engineering: isolation points at machine; Admin: LOTO try-out sign-off per shift","Maintenance & Sanitation"],
+ "Slips, trips and falls":["Wet-floor control in wash-down and production areas","Engineering: drainage and anti-slip flooring; PPE: slip-resistant footwear","Facilities"],
+ "Powered industrial vehicles":["Separate forklift traffic from pedestrians in dispatch and cold stores","Engineering: barriers, blue-spot lights; Admin: speed limits, licensing","Warehouse & Logistics"],
+ "Burns: steam, hot liquids, oil":["Hot-work and CIP line isolation; fryer oil handling","Engineering: line clamps and shields; PPE: face shields, aprons","Production"],
+ "Knives and hand tools":["Cut-resistant PPE and knife-skills training on boning lines","Admin: rotation and spacing; PPE: mesh gloves","Production"],
+ "Chemical / ammonia exposure":["Ammonia refrigeration PSM and chemical handling review","Engineering: leak detection; Admin: emergency drills","EHS"]};
+
+// ---------- state ----------
+const S={sub:-1,y0:2015,y1:2025,haz:-1,caseH:null,caseI:0};
+const sel=()=>{const r=[];for(let i=0;i<N;i++){const y=cols.y[i];if(y<S.y0||y>S.y1)continue;if(S.sub>=0&&cols.sub[i]!==S.sub)continue;if(S.haz>=0&&cols.haz[i]!==S.haz)continue;r.push(i)}return r};
+const selNoHaz=()=>{const h=S.haz;S.haz=-1;const r=sel();S.haz=h;return r};
+
+// ---------- filter controls ----------
+$('#fSub').innerHTML='<option value="-1">All sub-sectors</option>'+dims.sub.map((s,i)=>`<option value="${i}">${s}</option>`).join('');
+const years=[...new Set(cols.y)].sort();
+$('#fY0').innerHTML=years.map(y=>`<option>${y}</option>`).join('');
+$('#fY1').innerHTML=years.map(y=>`<option>${y}</option>`).join('');
+$('#fY0').value=S.y0;$('#fY1').value=S.y1;
+$('#fSub').onchange=e=>{S.sub=+e.target.value;render()};
+$('#fY0').onchange=e=>{S.y0=+e.target.value;if(S.y0>S.y1){S.y1=S.y0;$('#fY1').value=S.y1}render()};
+$('#fY1').onchange=e=>{S.y1=+e.target.value;if(S.y1<S.y0){S.y0=S.y1;$('#fY0').value=S.y0}render()};
+$('#hazChip').onclick=()=>{S.haz=-1;render()};
+$('#reset').onclick=()=>{Object.assign(S,{sub:-1,y0:2015,y1:2025,haz:-1});$('#fSub').value=-1;$('#fY0').value=2015;$('#fY1').value=2025;render()};
+const setHaz=i=>{S.haz=(S.haz===i?-1:i);if(S.haz>=0){S.caseH=S.haz;S.caseI=0}render()};
+
+// ---------- theme-aware chart colours ----------
+let C={};
+const readTheme=()=>{const cs=getComputedStyle(document.documentElement);['steel','orange','yellow','red','mut','line','ink','surface'].forEach(k=>C[k]=cs.getPropertyValue('--'+k).trim());
+  Chart.defaults.color=C.mut;Chart.defaults.borderColor=C.line;Chart.defaults.font.family=getComputedStyle(document.body).fontFamily;Chart.defaults.font.size=12};
+readTheme();
+const base=(o={})=>Object.assign({responsive:true,maintainAspectRatio:false,animation:{duration:250},plugins:{legend:{position:'bottom',labels:{boxWidth:10,boxHeight:10}},tooltip:{backgroundColor:C.ink,titleColor:C.surface,bodyColor:C.surface}}},o);
+const charts={};
+const upsert=(id,cfg)=>{if(charts[id]){charts[id].destroy()}charts[id]=new Chart(document.getElementById(id),cfg)};
+
+// ---------- render ----------
+function render(){
+  const r=sel(), n=r.length;
+  const amp=r.reduce((a,i)=>a+cols.amp[i],0), hosp=r.reduce((a,i)=>a+cols.hosp[i],0), insp=r.reduce((a,i)=>a+cols.insp[i],0);
+  const fingerIdx=dims.body.indexOf('Fingers & thumbs'), handIdx=dims.body.indexOf('Hands & wrists');
+  const fh=r.filter(i=>cols.body[i]===fingerIdx||cols.body[i]===handIdx).length;
+  const ctrlAmp=r.filter(i=>cols.amp[i]&&CONTROLLABLE.includes(cols.haz[i])).length;
+  const subName=S.sub>=0?dims.sub[S.sub].toLowerCase():'food and beverage manufacturing';
+  const span=S.y0===S.y1?`${S.y0}`:`${S.y0}–${S.y1}`;
+
+  // header
+  const allAmp=cols.amp.reduce((a,b)=>a+b,0);
+  $('#thesis').innerHTML = n&&amp
+    ? `Across <b>${fmt(n)}</b> severe injuries in ${subName} (${span}), two controllable hazards, moving machinery and cleaning or maintenance without lockout, caused <b>${pct(amp?ctrlAmp/amp:0)}</b> of all amputations.`
+    : `No amputations in the current filter. Widen the selection to see the full picture.`;
+  $('#prov').textContent=`${fmt(meta.raw_rows)} raw OSHA reports · ${meta.data_quality_checks} data quality checks · ${fmt(N)} food & beverage incidents · ${dims.st.length} states`;
+  $('#count').innerHTML=`<b>${fmt(n)}</b> of ${fmt(N)} incidents`;
+  const chip=$('#hazChip');chip.hidden=S.haz<0;if(S.haz>=0)chip.textContent=`Hazard: ${HAZ_SHORT[dims.haz[S.haz]]||dims.haz[S.haz]}  ×`;
+
+  // KPIs
+  const ampRate=n?amp/n:0;
+  const k=[
+    ['Severe injury reports',fmt(n),`${span}${S.sub>=0?' · '+dims.sub[S.sub]:''}`,'var(--steel)'],
+    ['Amputation rate',pct(ampRate),`${(ampRate/meta.nonmfg_amp).toFixed(1)}× non-manufacturing (${pct(meta.nonmfg_amp)})`,ampRate>.4?'var(--red)':ampRate>.25?'var(--orange)':'var(--yellow)'],
+    ['Amputations',fmt(amp),'reports with at least one amputation','var(--orange)'],
+    ['Controllable share',pct(amp?ctrlAmp/amp:0),'of amputations from machinery + LOTO hazards','var(--orange)'],
+    ['Fingers & hands',pct(n?fh/n:0),'of reports injure fingers, thumbs, hands or wrists','var(--yellow)'],
+    ['Hospitalised',pct(n?hosp/n:0),`OSHA inspection opened in ${pct(n?insp/n:0)}`,'var(--steel)']];
+  $('#kpis').innerHTML=k.map(([l,v,s,c])=>`<div class="kpi" style="--sev:${c}"><div class="l">${l}</div><div class="v">${v}</div><div class="s">${s}</div></div>`).join('');
+
+  // Pareto (ignores hazard filter so the selected bar stays in context)
+  const rh=selNoHaz();
+  const hz=dims.haz.map((h,i)=>({i,h,n:0,a:0}));rh.forEach(i=>{hz[cols.haz[i]].n++;hz[cols.haz[i]].a+=cols.amp[i]});
+  const order=hz.filter(d=>d.n).sort((a,b)=>b.a-a.a);
+  const totA=order.reduce((s,d)=>s+d.a,0);let cum=0;const cumv=order.map(d=>(cum+=d.a,+(100*cum/Math.max(totA,1)).toFixed(1)));
+  upsert('cPareto',{data:{labels:order.map(d=>HAZ_SHORT[d.h]||d.h),datasets:[
+    {type:'bar',label:'Amputations',data:order.map(d=>d.a),backgroundColor:order.map(d=>S.haz<0||S.haz===d.i?C.orange:C.line),yAxisID:'y',order:2,borderRadius:3},
+    {type:'bar',label:'All severe injuries',data:order.map(d=>d.n),backgroundColor:order.map(d=>S.haz<0||S.haz===d.i?C.steel:C.line),yAxisID:'y',order:3,borderRadius:3},
+    {type:'line',label:'Cumulative % of amputations',data:cumv,borderColor:C.ink,backgroundColor:C.ink,yAxisID:'y2',order:1,pointRadius:3,tension:.2}]},
+    options:base({onClick:(e,els)=>{if(els.length)setHaz(order[els[0].index].i)},onHover:(e,els)=>{e.native.target.style.cursor=els.length?'pointer':'default'},
+      scales:{x:{ticks:{maxRotation:40,minRotation:0,autoSkip:false}},y:{beginAtZero:true,grid:{color:C.line}},y2:{position:'right',min:0,max:100,grid:{display:false},ticks:{callback:v=>v+'%'}}}})});
+
+  // Trend
+  const ys=years.filter(y=>y>=S.y0&&y<=S.y1);const tn=ys.map(()=>0),ta=ys.map(()=>0);
+  r.forEach(i=>{const j=ys.indexOf(cols.y[i]);tn[j]++;ta[j]+=cols.amp[i]});
+  upsert('cTrend',{type:'line',data:{labels:ys,datasets:[
+    {label:'Severe injuries',data:tn,borderColor:C.steel,backgroundColor:C.steel+'22',fill:true,tension:.25,pointRadius:2},
+    {label:'Amputations',data:ta,borderColor:C.orange,backgroundColor:C.orange+'22',fill:true,tension:.25,pointRadius:2}]},
+    options:base({scales:{y:{beginAtZero:true,grid:{color:C.line}},x:{grid:{display:false}}}})});
+
+  // Equipment
+  const eq=dims.eq.map((e,i)=>({e,a:0}));r.forEach(i=>{if(cols.amp[i])eq[cols.eq[i]].a++});
+  const eqTop=eq.filter(d=>d.e!=='All other sources'&&d.a).sort((a,b)=>b.a-a.a).slice(0,10);
+  const clean=s=>s.replace(/-food and beverage$/,'').replace(/^Food and beverage processing machinery-specialized, /,'Specialised food machinery, ').replace(/n\.e\.c\./,'other');
+  upsert('cEquip',{type:'bar',data:{labels:eqTop.map(d=>clean(d.e)),datasets:[{label:'Amputations',data:eqTop.map(d=>d.a),backgroundColor:C.orange,borderRadius:3}]},
+    options:base({indexAxis:'y',plugins:{legend:{display:false},tooltip:base().plugins.tooltip},scales:{x:{beginAtZero:true,grid:{color:C.line}},y:{grid:{display:false},ticks:{callback:function(v){const l=this.getLabelForValue(v);return l.length>34?l.slice(0,33)+'…':l}}}}})});
+
+  // Body parts
+  const bd=dims.body.map((b,i)=>({b,n:0}));r.forEach(i=>bd[cols.body[i]].n++);bd.sort((a,b)=>b.n-a.n);
+  upsert('cBody',{type:'bar',data:{labels:bd.map(d=>d.b),datasets:[{label:'Share of reports',data:bd.map(d=>+(100*d.n/Math.max(n,1)).toFixed(1)),backgroundColor:bd.map(d=>/Fingers|Hands/.test(d.b)?C.orange:C.steel),borderRadius:3}]},
+    options:base({indexAxis:'y',plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.raw+'% of reports'}}},scales:{x:{beginAtZero:true,ticks:{callback:v=>v+'%'},grid:{color:C.line}},y:{grid:{display:false}}}})});
+
+  drawMap(r);matrix();capa(r);showCase();
+}
+
+// ---------- dot map (Albers equal-area, contiguous US) ----------
+function albers(lon,lat){const R=Math.PI/180,p1=29.5*R,p2=45.5*R,p0=37.5*R,l0=-96*R;const n=(Math.sin(p1)+Math.sin(p2))/2,Cc=Math.cos(p1)**2+2*n*Math.sin(p1);
+  const rho0=Math.sqrt(Cc-2*n*Math.sin(p0))/n,rho=Math.sqrt(Cc-2*n*Math.sin(lat*R))/n,t=n*(lon*R-l0);return[rho*Math.sin(t),rho0-rho*Math.cos(t)]}
+const B=(()=>{let x0=1e9,x1=-1e9,y0=1e9,y1=-1e9;for(let lo=-125;lo<=-66;lo+=1)for(const la of[24.5,49.5]){const[x,y]=albers(lo,la);x0=Math.min(x0,x);x1=Math.max(x1,x);y0=Math.min(y0,y);y1=Math.max(y1,y)}return{x0,x1,y0,y1}})();
+function drawMap(r){
+  const cv=$('#map'),dpr=window.devicePixelRatio||1,w=cv.clientWidth,h=cv.clientHeight;cv.width=w*dpr;cv.height=h*dpr;const g=cv.getContext('2d');g.scale(dpr,dpr);g.clearRect(0,0,w,h);
+  const pad=8,sx=(w-2*pad)/(B.x1-B.x0),sy=(h-2*pad)/(B.y1-B.y0),s=Math.min(sx,sy),ox=(w-(B.x1-B.x0)*s)/2,oy=(h-(B.y1-B.y0)*s)/2;
+  const P=(lo,la)=>{const[x,y]=albers(lo,la);return[ox+(x-B.x0)*s,h-(oy+(y-B.y0)*s)]};
+  // faint graticule for orientation
+  g.strokeStyle=C.line;g.lineWidth=1;g.globalAlpha=.7;
+  for(let la=25;la<=50;la+=5){g.beginPath();for(let lo=-125;lo<=-66;lo+=1){const[x,y]=P(lo,la);lo===-125?g.moveTo(x,y):g.lineTo(x,y)}g.stroke()}
+  for(let lo=-120;lo<=-70;lo+=10){g.beginPath();for(let la=24;la<=50;la+=1){const[x,y]=P(lo,la);la===24?g.moveTo(x,y):g.lineTo(x,y)}g.stroke()}
+  g.globalAlpha=1;let off=0;const rad=Math.max(1.6,Math.min(2.6,w/320));
+  const plot=(amp)=>{g.fillStyle=amp?C.orange:C.steel;g.globalAlpha=amp?.7:.55;
+    for(const i of r){if(cols.amp[i]!==amp)continue;const lo=cols.lon[i],la=cols.lat[i];if(lo==null||la==null||lo<-125||lo>-66||la<24||la>50){if(amp)off++;continue}
+      const[x,y]=P(lo,la);g.beginPath();g.arc(x,y,rad,0,7);g.fill()}};
+  plot(0);plot(1);g.globalAlpha=1;
+  const stc=dims.st.map((s,i)=>({s,n:0}));r.forEach(i=>stc[cols.st[i]].n++);stc.sort((a,b)=>b.n-a.n);
+  $('#topStates').textContent='Most reports: '+stc.slice(0,5).map(d=>`${d.s[0]+d.s.slice(1).toLowerCase()} ${fmt(d.n)}`).join(' · ');
+}
+
+// ---------- risk matrix ----------
+function matrix(){
+  const saved=S.sub;S.sub=-1;const hv=S.haz;S.haz=-1;const r=sel();S.sub=saved;S.haz=hv;
+  const hz=dims.haz.map((h,i)=>i).filter(i=>!['Other','Unclassified','Chemical / ammonia exposure'].includes(dims.haz[i]));
+  const M={};let max=1;r.forEach(i=>{if(!cols.amp[i])return;const k=cols.sub[i]+'|'+cols.haz[i];M[k]=(M[k]||0)+1;max=Math.max(max,M[k])});
+  const subs=dims.sub.map((s,i)=>i).sort((a,b)=>hz.reduce((t,h)=>t+(M[b+'|'+h]||0),0)-hz.reduce((t,h)=>t+(M[a+'|'+h]||0),0));
+  let t='<thead><tr><th>Sub-sector</th>'+hz.map(h=>`<th class="rot">${HAZ_SHORT[dims.haz[h]]}</th>`).join('')+'</tr></thead><tbody>';
+  subs.forEach(si=>{t+=`<tr><td class="rowh">${dims.sub[si]}</td>`+hz.map(h=>{const v=M[si+'|'+h]||0,p=Math.round(100*Math.sqrt(v/max));const on=(S.sub===si&&S.haz===h);
+    return `<td class="cell" data-s="${si}" data-h="${h}" title="${dims.sub[si]} · ${dims.haz[h]}: ${v} amputations" style="background:color-mix(in oklab,var(--hot-1) ${p}%,var(--hot-0));color:${p>55?'#fff':'var(--ink)'};${on?'outline:3px solid var(--ink);outline-offset:-3px':''}">${v||''}</td>`}).join('')+'</tr>'});
+  $('#matrix').innerHTML=t+'</tbody>';
+  $('#matrix').querySelectorAll('td.cell').forEach(td=>td.onclick=()=>{const s=+td.dataset.s,h=+td.dataset.h;
+    if(S.sub===s&&S.haz===h){S.sub=-1;S.haz=-1}else{S.sub=s;S.haz=h;S.caseH=h;S.caseI=0}$('#fSub').value=S.sub;render()});
+}
+
+// ---------- CAPA ----------
+function capa(r){
+  const saved=S.haz;S.haz=-1;const base_=sel();S.haz=saved;
+  const rows=Object.keys(CONTROLS).map(h=>{const hi=dims.haz.indexOf(h);const x=base_.filter(i=>cols.haz[i]===hi);const a=x.filter(i=>cols.amp[i]).length;
+    return{h,hi,n:x.length,a,ar:x.length?a/x.length:0,ir:x.length?x.filter(i=>cols.insp[i]).length/x.length:0}}).filter(d=>d.n).sort((a,b)=>b.a-a.a||b.n-a.n);
+  const totA=rows.reduce((s,d)=>s+d.a,0)||1;
+  $('#capa').innerHTML='<thead><tr><th>Priority</th><th>Hazard</th><th>Reports</th><th>Amputations</th><th>Amp. rate</th><th>Share of amps</th><th>Corrective action</th><th>Owner</th></tr></thead><tbody>'+
+   rows.map((d,k)=>{const p=k<2?'p1':k<4?'p2':k<5?'p3':'p4';const c=CONTROLS[d.h];
+    return `<tr${S.haz===d.hi?' style="background:var(--surface-2)"':''}><td><span class="sev ${p}">${p.toUpperCase()}</span></td><td>${HAZ_SHORT[d.h]}</td><td class="num">${fmt(d.n)}</td><td class="num">${fmt(d.a)}</td><td class="num">${pct(d.ar,0)}</td><td class="num">${pct(d.a/totA,0)}</td><td>${c[0]}<div class="ctl">${c[1]}</div></td><td>${c[2]}</td></tr>`}).join('')+'</tbody>';
+}
+
+// ---------- case file ----------
+const caseHaz=[...new Set(cases.map(c=>c.h))].filter(h=>h!=='Unclassified').sort((a,b)=>{const o=Object.keys(CONTROLS),x=o.indexOf(a),y=o.indexOf(b);return (x<0?99:x)-(y<0?99:y)});
+S.caseH=dims.haz.indexOf(caseHaz[0]);
+function showCase(){
+  const hname=dims.haz[S.caseH]||caseHaz[0];
+  $('#caseTabs').innerHTML=caseHaz.map(h=>`<button class="tab" aria-pressed="${h===hname}" data-h="${h}">${HAZ_SHORT[h]||h}</button>`).join('');
+  $('#caseTabs').querySelectorAll('.tab').forEach(b=>b.onclick=()=>{S.caseH=dims.haz.indexOf(b.dataset.h);S.caseI=0;showCase()});
+  let pool=cases.filter(c=>c.h===hname);const subPool=S.sub>=0?pool.filter(c=>c.s===dims.sub[S.sub]):pool;if(subPool.length)pool=subPool;
+  const c=pool[S.caseI%pool.length];
+  $('#case').innerHTML=`<div class="meta"><span class="pill">${c.y}</span><span class="pill">${c.s}</span><span class="pill">${c.st}</span><span class="pill">${c.eq}</span>${c.a?'<span class="pill amp">AMPUTATION</span>':''}</div><p>${c.t.replace(/[<>]/g,'')}</p><div class="hint">Case ${S.caseI%pool.length+1} of ${pool.length} sampled · ${HAZ_SHORT[hname]||hname}</div>`;
+}
+$('#nextCase').onclick=()=>{S.caseI++;showCase()};
+
+// ---------- data quality log ----------
+$('#dq').innerHTML='<thead><tr><th>Check</th><th style="text-align:right">Rows</th><th>Action</th></tr></thead><tbody>'+dq.map(d=>`<tr><td>${d.check}</td><td class="num">${fmt(d.rows_flagged)}</td><td class="ctl">${d.action}</td></tr>`).join('')+'</tbody>';
+
+// ================= Phase 2: recipe & allergen specifications =================
+const AL_NAME={"milk":"Milk","gluten":"Gluten","eggs":"Egg","soybeans":"Soy","peanuts":"Peanut","nuts":"Tree nuts","sesame-seeds":"Sesame","fish":"Fish","crustaceans":"Crustacea","lupin":"Lupin","sulphur-dioxide-and-sulphites":"Sulphites"};
+const P2S={al:null};
+function renderP2(){
+  const m=p2.meta;
+  $('#p2thesis').innerHTML=`A PLM-style recipe model of <b>${fmt(m.products)}</b> Australian packaged foods (${fmt(m.bom_lines)} ingredient lines). Milk-derived ingredients sit in <b>${pct(m.milk_share)}</b> of all product specs across ${m.milk_categories} of ${m.categories} categories, and milk is behind <b>${pct(m.fda_milk_share_of_allergen,0)}</b> of US undeclared-allergen recalls. ${fmt(m.products_with_gap)} specs are flagged for review.`;
+  const k=[['Product specs',fmt(m.products),`${m.categories} categories · ${fmt(m.brands)} brands`,'var(--steel)'],
+    ['Recipe BOM lines',fmt(m.bom_lines),`${fmt(m.distinct_ingredients)} distinct ingredients`,'var(--steel)'],
+    ['Contain an allergen',pct(m.allergen_bearing_share),'at least one FSANZ mandatory allergen','var(--yellow)'],
+    ['Specs flagged',fmt(m.products_with_gap),`${pct(m.gap_rate)} · derived allergen not declared`,'var(--red)'],
+    ['"May contain" labels',pct(m.may_contain_share),'precautionary allergen statements','var(--orange)'],
+    ['Recalls from allergens',pct(m.fda_allergen_share),`${fmt(m.fda_allergen)} of ${fmt(m.fda_total)} FDA records · ${pct(m.fda_allergen_class1_share,0)} Class I`,'var(--orange)']];
+  $('#p2kpis').innerHTML=k.map(([l,v,s,c])=>`<div class="kpi" style="--sev:${c}"><div class="l">${l}</div><div class="v">${v}</div><div class="s">${s}</div></div>`).join('');
+  const A=p2.allergens;
+  upsert('cAlg',{type:'bar',data:{labels:A.map(d=>AL_NAME[d.allergen]||d.allergen),datasets:[
+    {label:'Derived from recipe',data:A.map(d=>d.products_containing),backgroundColor:C.steel,borderRadius:3},
+    {label:'Declared "Contains"',data:A.map(d=>d.declared_in_contains),backgroundColor:C.line,borderColor:C.mut,borderWidth:1,borderRadius:3},
+    {label:'Spec gaps (derived, not declared)',data:A.map(d=>d.spec_gaps),backgroundColor:C.red,borderRadius:3}]},
+    options:base({onClick:(e,els)=>{if(els.length){const a=A[els[0].index].allergen;P2S.al=P2S.al===a?null:a;queue()}},scales:{y:{beginAtZero:true,grid:{color:C.line}},x:{ticks:{autoSkip:false,maxRotation:45}}}})});
+  const F=p2.fda;const rs=[['Listeria',F.reasons.listeria],['Undeclared allergen',F.reasons.allergen_undeclared],['Salmonella',F.reasons.salmonella],['Foreign material',F.reasons.foreign_material],['E. coli',F.reasons.e_coli]];
+  const pa=Object.entries(F.per_allergen).sort((a,b)=>b[1]-a[1]);
+  upsert('cFda',{type:'bar',data:{labels:pa.map(([k])=>({milk:'Milk',soy:'Soy',wheat:'Wheat',peanut:'Peanut',tree_nuts:'Tree nuts',egg:'Egg',sesame:'Sesame',shellfish:'Shellfish',fish:'Fish'}[k])),datasets:[
+    {label:'Undeclared-allergen recall records',data:pa.map(([,v])=>v),backgroundColor:pa.map(([k])=>k==='milk'?C.orange:C.steel),borderRadius:3}]},
+    options:base({indexAxis:'y',plugins:{legend:{display:false},subtitle:{display:true,text:'Top causes: '+rs.map(([n,v])=>`${n} ${pct(v/F.total_records,0)}`).join(' · '),color:C.mut,padding:{bottom:8}}},scales:{x:{beginAtZero:true,grid:{color:C.line}},y:{grid:{display:false}}}})});
+  const W=p2.where.slice(0,14);
+  upsert('cWhere',{type:'bar',data:{labels:W.map(d=>d.ingredient.replace(/-/g,' ')),datasets:[{label:'Product specs using it',data:W.map(d=>d.products),backgroundColor:W.map(d=>/milk|cream|whey|butter|cheese/.test(d.ingredient)&&!/cocoa/.test(d.ingredient)?C.orange:C.steel),borderRadius:3}]},
+    options:base({indexAxis:'y',plugins:{legend:{display:false},tooltip:{callbacks:{afterLabel:c=>`${W[c.dataIndex].categories} of ${m.categories} categories`}}},scales:{x:{beginAtZero:true,grid:{color:C.line}},y:{grid:{display:false}}}})});
+  const K=p2.cats;
+  upsert('cCat',{type:'bar',data:{labels:K.map(d=>d.category.replace(/-/g,' ')),datasets:[
+    {label:'Spec gap rate %',data:K.map(d=>+(100*d.spec_gap_rate).toFixed(1)),backgroundColor:C.red,borderRadius:3},
+    {label:'"May contain" rate %',data:K.map(d=>+(100*d.may_contain_rate).toFixed(1)),backgroundColor:C.yellow,borderRadius:3}]},
+    options:base({scales:{y:{beginAtZero:true,ticks:{callback:v=>v+'%'},grid:{color:C.line}},x:{ticks:{autoSkip:false,maxRotation:50,minRotation:30}}}})});
+  queue();
+}
+function queue(){
+  const al=Object.keys(AL_NAME).filter(a=>p2.queue.some(r=>r.gap.split(', ').includes(a)));
+  $('#qFilter').innerHTML=`<button class="tab" aria-pressed="${!P2S.al}" data-a="">All</button>`+al.map(a=>`<button class="tab" aria-pressed="${P2S.al===a}" data-a="${a}">${AL_NAME[a]}</button>`).join('');
+  $('#qFilter').querySelectorAll('.tab').forEach(b=>b.onclick=()=>{P2S.al=b.dataset.a||null;queue()});
+  const rows=p2.queue.filter(r=>!P2S.al||r.gap.split(', ').includes(P2S.al));
+  $('#qcount').textContent=`${rows.length} of ${p2.queue.length} specs flagged${P2S.al?' for '+AL_NAME[P2S.al]:''} · click a bar above to filter`;
+  const esc=t=>String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  $('#queue').innerHTML='<thead><tr><th>GTIN</th><th>Product</th><th>Brand</th><th>Category</th><th>Declared "Contains"</th><th>Derived, not declared</th></tr></thead><tbody>'+
+    rows.map(r=>`<tr><td class="code">${esc(r.code)}</td><td>${esc(r.name||'(no name)')}</td><td>${esc(r.brand)}</td><td>${esc(r.category.replace(/-/g,' '))}</td><td class="ctl">${esc((r.allergens_declared||'none').split(';').map(a=>AL_NAME[a]||a).join(', '))}</td><td>${r.gap.split(', ').map(a=>`<span class="gap-pill">${AL_NAME[a]||a}</span>`).join('')}</td></tr>`).join('')+'</tbody>';
+}
+
+render();renderP2();
+let rt;window.addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(()=>drawMap(sel()),150)});
+const mq=matchMedia('(prefers-color-scheme: dark)');mq.addEventListener&&mq.addEventListener('change',()=>{readTheme();render();renderP2()});
+new MutationObserver(()=>{readTheme();render();renderP2()}).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+</script>
+</body>
+</html>

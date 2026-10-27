@@ -1,0 +1,23 @@
+{
+  "products": 2724,
+  "categories": 12,
+  "brands": 953,
+  "bom_lines": 36404,
+  "distinct_ingredients": 836,
+  "dq_checks": 6,
+  "allergen_bearing_share": 0.688,
+  "products_with_gap": 115,
+  "gap_rate": 0.042,
+  "top_gap_allergen": "gluten",
+  "may_contain_share": 0.337,
+  "milk_products": 1067,
+  "milk_categories": 11,
+  "milk_share": 0.392,
+  "top_ingredient": "salt",
+  "top_ingredient_products": 1543,
+  "fda_total": 29512,
+  "fda_allergen": 5567,
+  "fda_allergen_share": 0.189,
+  "fda_milk_share_of_allergen": 0.42,
+  "fda_allergen_class1_share": 0.383
+}

@@ -1,0 +1,7 @@
+check,rows_flagged,action
+Duplicate product code (GTIN),0,drop duplicate
+Missing product name,39,"keep, show code"
+Missing brand,139,"keep, brand = Unknown"
+Invalid barcode length (not 8/12/13/14 digits),2,"keep, flag"
+No ingredient list,108,excluded from roll-up
+Non-standard allergen value in Contains field,5,"keep, flag for clean-up"

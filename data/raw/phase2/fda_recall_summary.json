@@ -1,0 +1,12 @@
+{
+  "source": "openFDA Food Enforcement API (api.fda.gov/food/enforcement.json), aggregated counts, data last updated 2026-10-21. Counts are product-level recall records.",
+  "total_records": 29512,
+  "allergen_query": "reason_for_recall:(undeclared AND (milk OR dairy OR egg OR eggs OR peanut OR peanuts OR soy OR soya OR wheat OR gluten OR almond(s) OR cashew(s) OR walnut(s) OR pecan(s) OR hazelnut(s) OR pistachio(s) OR \"tree nut(s)\" OR fish OR shellfish OR shrimp OR crab OR lobster OR sesame OR allergen(s)))",
+  "allergen_total": 5567,
+  "all_by_year": {"2012": 1917, "2013": 2111, "2014": 2259, "2015": 2834, "2016": 3011, "2017": 3203, "2018": 1958, "2019": 1863, "2020": 1286, "2021": 1181, "2022": 1652, "2023": 2155, "2024": 1409, "2025": 1617, "2026": 1056},
+  "allergen_by_year": {"2012": 227, "2013": 187, "2014": 297, "2015": 613, "2016": 536, "2017": 1138, "2018": 263, "2019": 170, "2020": 227, "2021": 246, "2022": 414, "2023": 455, "2024": 274, "2025": 312, "2026": 208},
+  "per_allergen": {"milk": 2337, "soy": 1158, "wheat": 1039, "peanut": 919, "tree_nuts": 750, "egg": 584, "sesame": 144, "shellfish": 132, "fish": 129},
+  "reasons": {"listeria": 7498, "undeclared_any": 6329, "allergen_undeclared": 5567, "salmonella": 3694, "foreign_material": 2343, "e_coli": 493},
+  "allergen_class": {"Class I": 2130, "Class II": 3234, "Class III": 203},
+  "all_class": {"Class I": 12985, "Class II": 14763, "Class III": 1763, "Not Yet Classified": 1}
+}
